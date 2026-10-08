@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blanch</title>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+  <h1>Blanch</h1>
+  <section id="menu">
+    <button id="createRoom">Create Room</button>
+    <input id="roomCode" type="text" placeholder="Room Code">
+    <button id="joinRoom">Join Room</button>
+  </section>
+
+  <section id="chat" hidden>
+
+    <p>Room: <strong id="currentRoom"></strong></p>
+    <div id="messages"></div>
+    <input id="messageInput" type="text" placeholder="Message...">
+    <button id="sendMessage">Send</button>
+
+  </section>
+  <script src="/client.js"></script>
+</body>
+</html>
