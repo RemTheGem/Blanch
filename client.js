@@ -124,7 +124,7 @@ socket.on("receive-message", async ({ciphertext, iv}) => {
   if(!sharedKey) return;
   try{
     const message = await decryptMessage(sharedKey, {ciphertext, iv});
-    addMessage("Other", ciphertext);
+    addMessage("Other", message);
   }
   catch(err){
     console.log("failed to decrypt");
