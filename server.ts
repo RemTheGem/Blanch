@@ -66,6 +66,11 @@ io.on('connection', (socket) =>{
     if(room.sockets.includes(socket.id)){
       return;
     }
+    if(room.sockets.length >= 2){
+      socket.emit('join-error', {message: "Failed to connect"});
+      return;
+    }
+
     room.sockets.push(socket.id);
     socket.join(code);
     socket.emit('room-joined',{
@@ -76,6 +81,12 @@ io.on('connection', (socket) =>{
     console.log(`${socket.id} joined room ${code}`);
   });
 
+
+  socket.on('public-key', ({code, key})=>{
+    const room = rooms[code];
+    if(!room || !room.sockets.includes(socket.id)) return;
+    socket.to(code).emit('public-key', {key});
+  });
 
   socket.on('send-message', ({code, ciphertext, iv})=>{
     const room = rooms[code];
@@ -106,5 +117,5 @@ io.on('connection', (socket) =>{
 });
 
 server.listen(process.env.PORT || 3000, () => {
-  console.log("Blanch running on http://localhost:3000");
+  console.log("Blanch running ");
 });
