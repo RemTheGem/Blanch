@@ -66,7 +66,7 @@ function enterRoom(code){
   currentRoom.textContent = code;
   menu.hidden = true;
   chat.hidden = false;
-  messageInput.disabled = true;
+  messageInput.disabled = false;
 
   messageInput.focus();
 }
