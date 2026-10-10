@@ -46,7 +46,7 @@ export async function deriveSharedKey(peerPublicKey, myKeyPair){
     myKeyPair.privateKey,
     {name: 'AES-GCM', length: 256},
     false,
-    ['encrypt', decrypt]
+    ['encrypt', 'decrypt']
   );
 }
 
