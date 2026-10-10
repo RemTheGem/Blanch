@@ -30,6 +30,7 @@ createRoom.addEventListener("click", ()=>{
 
 socket.on("room-created", ({code})=>{
   enterRoom(code);
+
 });
 
 
@@ -77,7 +78,7 @@ async function startHandshake(){
     myKeyPair = await generateKeyPair();
     myPublicKey = await exportPublicKey(myKeyPair);
   }
-  socket.emit('public-key', {code: thisRoom, key: myPublicKeyB64});
+  socket.emit('public-key', {code: thisRoom, key: myPublicKey});
 }
 
 socket.on('public-key', async ({key})=>{
@@ -119,7 +120,7 @@ messageInput.addEventListener("keydown", (event)=>{
 
 // receive message
 
-socket.on("receive-message", async ({ciphertext}) => {
+socket.on("receive-message", async ({ciphertext, iv}) => {
   if(!sharedKey) return;
   try{
     const message = await decryptMessage(sharedKey, {ciphertext, iv});
