@@ -4,7 +4,9 @@
   "description": "",
   "main": "client.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run typecheck:client && npm run build:client",
+    "typecheck:client": "tsc -p tsconfig.client.json",
+    "build:client": "esbuild client.ts --bundle --outfile=dist-client/client.js",
     "start": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -19,6 +21,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.4",
+    "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
   }
 }

@@ -1,26 +1,28 @@
-import { generateKeyPair, exportPublicKey, deriveSharedKey, encryptMessage, decryptMessage, computeFingerprint } from "./crypto.js";
+import { generateKeyPair, exportPublicKey, deriveSharedKey, encryptMessage, decryptMessage, computeFingerprint, type EncryptedPayload } from "./crypto.js";
+
+declare const io: any;
 
 const socket=  io();
-let thisRoom = null;
+let thisRoom: string | null = null;
 
-const menu = document.getElementById('menu');
-const chat = document.getElementById("chat");
+const menu = document.getElementById('menu')!;
+const chat = document.getElementById("chat") as HTMLButtonElement;
 
-const createRoom = document.getElementById("createRoom");
-const joinRoom = document.getElementById("joinRoom");
+const createRoom = document.getElementById("createRoom") as HTMLButtonElement;
+const joinRoom = document.getElementById("joinRoom") as HTMLButtonElement;
 
-const roomCode = document.getElementById("roomCode");
-const currentRoom = document.getElementById("currentRoom");
+const roomCode = document.getElementById("roomCode") as HTMLInputElement;
+const currentRoom = document.getElementById("currentRoom") as HTMLElement;
 
-const messages = document.getElementById("messages");
-const messageInput = document.getElementById("messageInput");
-const sendMessage = document.getElementById("sendMessage");
+const messages = document.getElementById("messages") as HTMLElement;
+const messageInput = document.getElementById("messageInput") as HTMLInputElement;
+const sendMessage = document.getElementById("sendMessage") as HTMLButtonElement;
 
 // encryption state
 
-let myKeyPair = null;
-let myPublicKey = null;
-let sharedKey = null;
+let myKeyPair: CryptoKeyPair | null = null;
+let myPublicKey: string | null = null;
+let sharedKey: CryptoKey | null = null;
 
 // create room
 
@@ -28,7 +30,7 @@ createRoom.addEventListener("click", ()=>{
   socket.emit("create-room");
 });
 
-socket.on("room-created", ({code})=>{
+socket.on("room-created", ({code}: {code: string})=>{
   enterRoom(code);
 
 });
@@ -45,7 +47,7 @@ joinRoom.addEventListener("click", ()=>{
   });
 });
 
-socket.on("room-joined", ({code})=>{
+socket.on("room-joined", ({code}: {code: string})=>{
   enterRoom(code);
   startHandshake();
 });
@@ -61,7 +63,7 @@ socket.on('user-left', ()=>{
 
 // enter chat
 
-function enterRoom(code){
+function enterRoom(code: string){
   thisRoom = code;
   currentRoom.textContent = code;
   menu.hidden = true;
@@ -73,7 +75,7 @@ function enterRoom(code){
 
 // handshake
 
-async function startHandshake(){
+async function startHandshake(): Promise<void>{
   if(!myKeyPair){
     myKeyPair = await generateKeyPair();
     myPublicKey = await exportPublicKey(myKeyPair);
@@ -81,7 +83,7 @@ async function startHandshake(){
   socket.emit('public-key', {code: thisRoom, key: myPublicKey});
 }
 
-socket.on('public-key', async ({key})=>{
+socket.on('public-key', async ({key}: {key: string})=>{
   if(!myKeyPair){
     myKeyPair = await generateKeyPair();
     myPublicKey = await exportPublicKey(myKeyPair);
@@ -89,14 +91,16 @@ socket.on('public-key', async ({key})=>{
   }
   sharedKey = await deriveSharedKey(key, myKeyPair);
   messageInput.disabled = false;
-  const fingerprint = await computeFingerprint(myPublicKey, key);
+  if(myPublicKey){
+    const fingerprint = await computeFingerprint(myPublicKey, key);
+  }
 })
 
 // send message 
 
 async function send(){
   const message = messageInput.value.trim();
-  if(!currentRoom || !message) return;
+  if(!currentRoom || !message || !sharedKey) return;
 
   const {ciphertext, iv} = await encryptMessage(sharedKey, message);
   socket.emit("send-message", {
@@ -112,7 +116,7 @@ sendMessage.addEventListener("click", send);
 
 // ENTER also sends
 
-messageInput.addEventListener("keydown", (event)=>{
+messageInput.addEventListener("keydown", (event: KeyboardEvent)=>{
   if(event.key === "Enter"){
     send();
   }
@@ -120,7 +124,7 @@ messageInput.addEventListener("keydown", (event)=>{
 
 // receive message
 
-socket.on("receive-message", async ({ciphertext, iv}) => {
+socket.on("receive-message", async ({ciphertext, iv}: EncryptedPayload) => {
   if(!sharedKey) return;
   try{
     const message = await decryptMessage(sharedKey, {ciphertext, iv});
@@ -133,7 +137,7 @@ socket.on("receive-message", async ({ciphertext, iv}) => {
 
 // display message
 
-function addMessage(sender, message){
+function addMessage(sender: string, message: string){
   const element = document.createElement('p');
   element.textContent = `${sender}: ${message}`;
   messages.appendChild(element);
