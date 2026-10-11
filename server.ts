@@ -20,7 +20,7 @@ const rooms: Record<string, Room> = {};
 function makeRoomCode(){
   let code: string;
   do{
-    code = crypto.randomBytes(16).toString('hex');
+    code = crypto.randomBytes(8).toString('hex');
   }
   while(rooms[code]);
   return code;
