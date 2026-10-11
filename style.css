@@ -1,0 +1,26 @@
+:root{
+  --bg: #07080a;
+  --bg-lite: #7c2828;
+  --text: #ffffff;
+  --line: #840000;
+}
+
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+button{
+  border: 1px solid var(--line);
+  background: var(--bg-lite);
+  color: var(--text);
+}
+
+#roomCode, #messageInput{
+  background: var(--bg);
+}
