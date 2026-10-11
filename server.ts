@@ -99,6 +99,12 @@ io.on('connection', (socket) =>{
     });
   });
 
+  socket.on('send-file', ({code, fileCiphertext, fileIv, metaCiphertext, metaIv}) => {
+    const room = rooms[code];
+    if(!room)return;
+    if(!room.sockets.includes(socket.id)) return;
+    socket.to(code).emit('receive-file', {fileCiphertext, fileIv, metaCiphertext, metaIv});
+  });
 
   socket.on('disconnect', ()=>{
     const found = roomOf(socket.id);

@@ -78,6 +78,24 @@ export async function decryptMessage(sharedKey: CryptoKey, {ciphertext, iv}: Enc
   return new TextDecoder().decode(plainBuf);
 }
 
+// encrypt bytes for files. not reusing base64 to save resources
+
+export interface EncryptedBytes {
+  ciphertext: ArrayBuffer;
+  iv: Uint8Array;
+}
+
+export async function encryptBytes(sharedKey: CryptoKey, data: ArrayBuffer): Promise<EncryptedBytes>{
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt({name: 'AES-GCM', iv: iv as BufferSource}, sharedKey, data);
+  return {ciphertext, iv};
+}
+
+export async function decryptBytes(sharedKey: CryptoKey, {ciphertext, iv}: EncryptedBytes): Promise<ArrayBuffer>{
+  return crypto.subtle.decrypt({name: 'AES-GCM', iv: iv as BufferSource}, sharedKey, ciphertext);
+}
+
+
 // avoid Man in the middle attack by hashing both public keys  
 // into a short string
 

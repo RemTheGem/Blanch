@@ -65,6 +65,14 @@
     );
     return new TextDecoder().decode(plainBuf);
   }
+  async function encryptBytes(sharedKey, data) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, sharedKey, data);
+    return { ciphertext, iv };
+  }
+  async function decryptBytes(sharedKey, { ciphertext, iv }) {
+    return crypto.subtle.decrypt({ name: "AES-GCM", iv }, sharedKey, ciphertext);
+  }
   async function computeFingerprint(myPublicKey, peerPublicKey) {
     const [a, b] = [myPublicKey, peerPublicKey].sort();
     const data = new TextEncoder().encode(a + b);
@@ -84,6 +92,7 @@
   var require_client = __commonJS({
     "client.ts"() {
       init_crypto();
+      var MAX_FILE_BYTES = 5 * 1024 * 1024;
       var socket = io();
       var thisRoom = null;
       var menu = document.getElementById("menu");
@@ -95,6 +104,8 @@
       var messages = document.getElementById("messages");
       var messageInput = document.getElementById("messageInput");
       var sendMessage = document.getElementById("sendMessage");
+      var fileInput = document.getElementById("fileInput");
+      var fileInputButton = document.getElementById("fileInputButton");
       var myKeyPair = null;
       var myPublicKey = null;
       var sharedKey = null;
@@ -176,6 +187,61 @@
           console.log("failed to decrypt");
         }
       });
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files?.[0];
+        fileInput.value = "";
+        if (!file || !currentRoom || !sharedKey) return;
+        if (file.size > MAX_FILE_BYTES) {
+          console.log("File too large");
+          return;
+        }
+        const rawBytes = await file.arrayBuffer();
+        const fileEnc = await encryptBytes(sharedKey, rawBytes);
+        const metaEnc = await encryptMessage(sharedKey, JSON.stringify({ name: file.name, type: file.type }));
+        socket.emit("send-file", {
+          code: thisRoom,
+          fileCiphertext: fileEnc.ciphertext,
+          fileIv: fileEnc.iv,
+          metaCiphertext: metaEnc.ciphertext,
+          metaIv: metaEnc.iv
+        });
+        renderFile("You", file.name, file.type, rawBytes);
+      });
+      socket.on("receive-file", async ({ fileCiphertext, fileIv, metaCiphertext, metaIv }) => {
+        if (!sharedKey) return;
+        try {
+          const metaJson = await decryptMessage(sharedKey, { ciphertext: metaCiphertext, iv: metaIv });
+          const meta = JSON.parse(metaJson);
+          const bytes = await decryptBytes(sharedKey, { ciphertext: fileCiphertext, iv: fileIv });
+          renderFile("Other", meta.name, meta.type, bytes);
+        } catch (err) {
+          console.log("failed to decrypt file");
+        }
+      });
+      function renderFile(sender, name, type, data) {
+        const blob = new Blob([data], { type });
+        const url = URL.createObjectURL(blob);
+        const wrapper = document.createElement("p");
+        const label = document.createElement("span");
+        label.textContent = `${sender}: `;
+        wrapper.appendChild(label);
+        if (type.startsWith("image/")) {
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = name;
+          img.style.maxWidth = "200px";
+          img.style.display = "block";
+          wrapper.appendChild(img);
+        } else {
+          const link = document.createElement("a");
+          link.href = url;
+          link.textContent = ` ${name}`;
+          link.download = name;
+          wrapper.appendChild(link);
+        }
+        messages.appendChild(wrapper);
+      }
+      fileInputButton.addEventListener("click", () => fileInput.click());
       function addMessage(sender, message) {
         const element = document.createElement("p");
         element.textContent = `${sender}: ${message}`;

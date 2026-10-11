@@ -10,16 +10,18 @@
 
 <body>
   <h1>Blanch</h1>
-  <section id="menu" hidden>
+  <section id="menu">
     <button id="createRoom">Create Room</button>
     <input id="roomCode" type="text" placeholder="Room Code">
     <button id="joinRoom">Join Room</button>
   </section>
 
-  <section id="chat" >
+  <section id="chat" hidden>
 
     <p>Room: <strong id="currentRoom"></strong></p>
     <div id="messages"></div>
+    <input id="fileInput" type="file" hidden>
+    <button id="fileInputButton">Attach File</button>
     <input id="messageInput" type="text" placeholder="Message...">
     <button id="sendMessage">Send</button>
 
