@@ -6,7 +6,9 @@ import crypto from "crypto";
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  maxHttpBufferSize: 6 * 1024 * 1024,
+});
 
 app.use(express.static(path.join(__dirname, "..")));
 
