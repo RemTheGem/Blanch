@@ -86,6 +86,7 @@ socket.on("room-joined", ({code}: {code: string})=>{
 
 socket.on('user-joined', ()=>{
   startHandshake();
+  addMessage("System", "User joined!");
 });
 
 socket.on('user-left', ()=>{
@@ -329,5 +330,8 @@ fileInputButton.addEventListener('click', () => fileInput.click());
 function addMessage(sender: string, message: string){
   const element = document.createElement('p');
   element.textContent = `${sender}: ${message}`;
+  if(sender === "System"){
+    element.style.color = 'red';
+  }
   messages.appendChild(element);
 }
