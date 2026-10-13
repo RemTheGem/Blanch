@@ -6,9 +6,7 @@ import crypto from "crypto";
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  maxHttpBufferSize: 6 * 1024 * 1024,
-});
+const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, "..")));
 
@@ -101,11 +99,28 @@ io.on('connection', (socket) =>{
     });
   });
 
-  socket.on('send-file', ({code, fileCiphertext, fileIv, metaCiphertext, metaIv}) => {
+  socket.on('file-start', ({code, transferId, metaCiphertext, metaIv, totalChunks})=>{
     const room = rooms[code];
-    if(!room)return;
-    if(!room.sockets.includes(socket.id)) return;
-    socket.to(code).emit('receive-file', {fileCiphertext, fileIv, metaCiphertext, metaIv});
+    if(!room || !room.sockets.includes(socket.id)) return;
+    socket.to(code).emit('file-start', {transferId, metaCiphertext, metaIv, totalChunks});
+  });
+
+  socket.on('file-chunk', ({code, transferId, seq, ciphertext, iv})=>{
+    const room = rooms[code];
+    if(!room || !room.sockets.includes(socket.id)) return;
+    socket.to(code).emit('file-chunk', {transferId, seq, ciphertext, iv});
+  });
+
+  socket.on('file-chunk-ack', ({code, transferId, seq})=>{
+    const room = rooms[code];
+    if(!room || !room.sockets.includes(socket.id)) return;
+    socket.to(code).emit('file-chunk-ack', {transferId, seq});
+  });
+
+  socket.on('file-end', ({code, transferId}) =>{
+    const room = rooms[code];
+    if(!room || !room.sockets.includes(socket.id)) return;
+    socket.to(code).emit('file-end', {transferId});
   });
 
   socket.on('disconnect', ()=>{

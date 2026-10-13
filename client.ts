@@ -1,12 +1,34 @@
 import { generateKeyPair, exportPublicKey, deriveSharedKey, encryptMessage, decryptMessage, encryptBytes, decryptBytes, computeFingerprint, type EncryptedPayload } from "./crypto.js";
 
-// file size limited to 5MB for now
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+// size of each chunk
+const CHUNK_SIZE = 64 * 1024;
 
 interface FileMeta {
   name: string;
   type: string;
 }
+
+interface OutgoingTransfer {
+  transferId: string;
+  bytes: ArrayBuffer;
+  nextSeq: number;
+  totalChunks: number;
+  fileName: string;
+  fileType: string;
+}
+
+interface IncomingTransfer {
+  transferId: string;
+  meta: FileMeta;
+  chunks: Uint8Array[];
+  totalChunks: number;
+  receiveCount: number;
+}
+
+let outgoingTransfer: OutgoingTransfer | null = null;
+let incomingTransfer: IncomingTransfer | null = null;
+let sawIncomingChunkSinceLastSend = true;
 
 declare const io: any;
 
@@ -154,42 +176,121 @@ fileInput.addEventListener("change", async () =>{
   fileInput.value = "";
   if(!file || !currentRoom || !sharedKey) return;
 
+  if(outgoingTransfer){
+    addMessage("System", "Still sending a previous file. Wait for it to finish!");
+    return;
+  }
+
   if(file.size > MAX_FILE_BYTES){
-    console.log("File too large");
+    addMessage("System", "File too large")
     return;
   }
 
   const rawBytes = await file.arrayBuffer();
-  const fileEnc = await encryptBytes(sharedKey, rawBytes);
+  const totalChunks = Math.max(1, Math.ceil(rawBytes.byteLength / CHUNK_SIZE));
+  const transferId = crypto.randomUUID();
+
+  outgoingTransfer = {transferId, bytes: rawBytes, nextSeq: 0, totalChunks, fileName: file.name, fileType: file.type};
+
   const metaEnc = await encryptMessage (sharedKey, JSON.stringify({name: file.name, type: file.type} as FileMeta));
 
-  socket.emit("send-file", {
-    code: thisRoom, fileCiphertext: fileEnc.ciphertext, fileIv: fileEnc.iv, metaCiphertext: metaEnc.ciphertext, metaIv: metaEnc.iv
+  socket.emit("file-start", {
+    code: thisRoom, transferId, metaCiphertext: metaEnc.ciphertext, metaIv: metaEnc.iv, totalChunks,
   });
-  renderFile("You", file.name, file.type, rawBytes);
+  showProgress("out", file.name, 0, totalChunks);
+  await trySendNextChunk();
+});
+
+async function trySendNextChunk(): Promise<void> {
+  if(!outgoingTransfer || !sharedKey || !thisRoom) return;
+  if(incomingTransfer && !sawIncomingChunkSinceLastSend) return;
+
+  const {transferId, bytes, nextSeq, totalChunks, fileName, fileType} = outgoingTransfer;
+  if(nextSeq >= totalChunks){
+    socket.emit("file-end", {code: thisRoom, transferId});
+    renderFile("You", fileName, fileType, bytes);
+    hideProgress("out");
+    outgoingTransfer = null;
+    return;
+  }
+  const start = nextSeq * CHUNK_SIZE;
+  const slice = bytes.slice(start, start + CHUNK_SIZE);
+  const enc = await encryptBytes(sharedKey, slice);
+  socket.emit("file-chunk", {code: thisRoom, transferId, seq: nextSeq, ciphertext: enc.ciphertext, iv: enc.iv});
+  sawIncomingChunkSinceLastSend = false;
+}
+
+socket.on("file-chunk-ack", ({transferId, seq}: {transferId: string, seq: number})=>{
+  if(outgoingTransfer?.transferId !== transferId || seq !== outgoingTransfer.nextSeq)return;
+  outgoingTransfer.nextSeq++;
+  showProgress("out", outgoingTransfer.fileName, outgoingTransfer.nextSeq, outgoingTransfer.totalChunks);
+  trySendNextChunk();
 });
 
 // receive files
 
-interface IncomingFile {
-  fileCiphertext: ArrayBuffer;
-  fileIv: Uint8Array;
-  metaCiphertext: string;
-  metaIv: string;
-}
 
-socket.on("receive-file", async ({fileCiphertext, fileIv, metaCiphertext, metaIv}: IncomingFile) =>{
-  if(!sharedKey) return;
-
-  try{
-    const metaJson = await decryptMessage(sharedKey, {ciphertext: metaCiphertext, iv: metaIv});
+ 
+socket.on("file-start", async ({ transferId, metaCiphertext, metaIv, totalChunks }:
+  { transferId: string; metaCiphertext: string; metaIv: string; totalChunks: number }) => {
+  if (!sharedKey) return;
+  try {
+    const metaJson = await decryptMessage(sharedKey, { ciphertext: metaCiphertext, iv: metaIv });
     const meta: FileMeta = JSON.parse(metaJson);
-    const bytes = await decryptBytes(sharedKey, {ciphertext: fileCiphertext, iv: fileIv});
-    renderFile("Other", meta.name, meta.type, bytes);
-  } catch(err){
-    console.log("failed to decrypt file");
+    incomingTransfer = { transferId, meta, chunks: [], totalChunks, receiveCount: 0 };
+    showProgress("in", meta.name, 0, totalChunks);
+  } catch (err) {
+    console.log("failed to read incoming file metadata");
   }
 });
+
+socket.on("file-chunk", async ({transferId, seq, ciphertext, iv}: {transferId: string; seq: number; ciphertext: ArrayBuffer; iv: Uint8Array})=>{
+  if(!sharedKey || !thisRoom || incomingTransfer?.transferId !== transferId) return;
+  try{
+    const bytes = await decryptBytes(sharedKey, {ciphertext, iv});
+    incomingTransfer.chunks[seq] = new Uint8Array(bytes);
+    incomingTransfer.receiveCount++;
+    showProgress("in", incomingTransfer.meta.name, incomingTransfer.receiveCount, incomingTransfer.totalChunks);
+
+    socket.emit("file-chunk-ack", {code: thisRoom, transferId, seq});
+    sawIncomingChunkSinceLastSend =  true;
+    trySendNextChunk();
+  }
+  catch(err) {
+    console.log("failed to decrypt incoming chunk");
+  }
+});
+
+socket.on("file-end", ({transferId}: {transferId: string})=>{
+  if(incomingTransfer?.transferId !== transferId) return;
+  const totalBytes = incomingTransfer.chunks.reduce((sum, c) => sum + c.byteLength, 0);
+  const combined = new Uint8Array(totalBytes);
+  let offset = 0;
+  for(const chunk of incomingTransfer.chunks){
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  renderFile("Other", incomingTransfer.meta.name, incomingTransfer.meta.type, combined.buffer);
+  hideProgress("in");
+  incomingTransfer = null;
+})
+
+// progress bar
+
+function showProgress(direction: "in" | "out", fileName: string, done: number, total: number): void{
+  const container = document.getElementById(direction === "out" ? "progressOut" : "progressIn");
+  if(!container) return;
+  const pct = Math.round((done/total) *100);
+  container.hidden = false;
+  container.innerHTML = `<progress value="${done}" max="${total}"></progress> ${direction === "out" ? "Sending" : "Receiving"} ${fileName} | ${pct}%`;
+}
+
+function hideProgress(direction: "in" | "out"): void {
+  const container = document.getElementById(direction === "out" ? "progressOut" : "progressIn");
+  if(!container) return;
+  container.hidden = true;
+  container.innerHTML = "";
+}
 
 // render file (previews)
 
