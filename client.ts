@@ -1,6 +1,6 @@
 import { generateKeyPair, exportPublicKey, deriveSharedKey, encryptMessage, decryptMessage, encryptBytes, decryptBytes, computeFingerprint, type EncryptedPayload } from "./crypto.js";
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_FILE_BYTES = 25 * 1024 * 1024 * 4;
 // size of each chunk
 const CHUNK_SIZE = 64 * 1024;
 
