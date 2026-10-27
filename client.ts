@@ -2,7 +2,7 @@ import { generateKeyPair, exportPublicKey, deriveSharedKey, encryptMessage, decr
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024 * 4;
 // size of each chunk
-const CHUNK_SIZE = 512 * 1024;
+const CHUNK_SIZE = 1024 * 1024;
 
 interface FileMeta {
   name: string;
