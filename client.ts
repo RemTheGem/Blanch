@@ -101,7 +101,7 @@ function enterRoom(code: string){
   currentRoom.textContent = code;
   menu.hidden = true;
   chat.hidden = false;
-  messageInput.disabled = false;
+  messageInput.disabled = true;
 
   messageInput.focus();
 }
@@ -175,7 +175,7 @@ socket.on("receive-message", async ({ciphertext, iv}: EncryptedPayload) => {
 fileInput.addEventListener("change", async () =>{
   const file = fileInput.files?.[0];
   fileInput.value = "";
-  if(!file || !currentRoom || !sharedKey) return;
+  if(!file || !thisRoom || !sharedKey) return;
 
   if(outgoingTransfer){
     addMessage("System", "Still sending a previous file. Wait for it to finish!");
