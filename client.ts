@@ -1,4 +1,5 @@
 import { generateKeyPair, exportPublicKey, deriveSharedKey, encryptMessage, decryptMessage, encryptBytes, decryptBytes, computeFingerprint, type EncryptedPayload } from "./crypto.js";
+import { toDataURL } from "qrcode";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024 * 4;
 // size of each chunk
@@ -44,6 +45,7 @@ const joinRoom = document.getElementById("joinRoom") as HTMLButtonElement;
 const roomCode = document.getElementById("roomCode") as HTMLInputElement;
 const currentRoom = document.getElementById("currentRoom") as HTMLElement;
 
+const qrCodeImage = document.getElementById("qrCodeImage") as HTMLImageElement;
 const messages = document.getElementById("messages") as HTMLElement;
 const messageInput = document.getElementById("messageInput") as HTMLInputElement;
 const sendMessage = document.getElementById("sendMessage") as HTMLButtonElement;
@@ -58,13 +60,23 @@ let sharedKey: CryptoKey | null = null;
 
 // create room
 
+const urlParams = new URLSearchParams(window.location.search);
+const codeFromUrl = urlParams.get("code");
+if(codeFromUrl){
+  roomCode.value = codeFromUrl;
+  socket.emit("join-room", {code: codeFromUrl});
+}
+
 createRoom.addEventListener("click", ()=>{
   socket.emit("create-room");
 });
 
 socket.on("room-created", ({code}: {code: string})=>{
   enterRoom(code);
-
+  const joinUrl = `${window.location.origin}?code=${code}`;
+  toDataURL(joinUrl).then((resolvedValue) => {
+    qrCodeImage.src = resolvedValue; 
+  });
 });
 
 
