@@ -26,6 +26,7 @@ button{
 #roomCode, #messageInput{
   background: var(--bg);
   color: var(--text);
+  font-size: 16px;
 }
 
 #messages {
