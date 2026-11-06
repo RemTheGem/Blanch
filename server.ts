@@ -1,3 +1,7 @@
+// This is mostly responsible for forwarding/relaying data
+// Nothing originates here except room/connection management
+
+
 import path from "path";
 import express from "express";
 import http from "http";
@@ -17,6 +21,7 @@ interface Room{
 
 const rooms: Record<string, Room> = {};
 
+// make a code that isnt already in use
 function makeRoomCode(){
   let code: string;
   do{
@@ -26,6 +31,8 @@ function makeRoomCode(){
   return code;
 }
 
+
+// find which room a disconnecting socket was in
 function roomOf(socketId: string){
   for(const code of Object.keys(rooms)){
     const room = rooms[code];
@@ -52,7 +59,6 @@ io.on('connection', (socket) =>{
   });
 
   // join room
-
   socket.on('join-room', ({code}) =>{
     const room = rooms[code];
 
@@ -82,12 +88,14 @@ io.on('connection', (socket) =>{
   });
 
 
+  // relay public key to other user
   socket.on('public-key', ({code, key})=>{
     const room = rooms[code];
     if(!room || !room.sockets.includes(socket.id)) return;
     socket.to(code).emit('public-key', {key});
   });
 
+  // relay the encrypted message to the other user
   socket.on('send-message', ({code, ciphertext, iv})=>{
     const room = rooms[code];
     if(!room) return;
@@ -99,30 +107,35 @@ io.on('connection', (socket) =>{
     });
   });
 
+  // relay the file start announcement to the other user
   socket.on('file-start', ({code, transferId, metaCiphertext, metaIv, totalChunks})=>{
     const room = rooms[code];
     if(!room || !room.sockets.includes(socket.id)) return;
     socket.to(code).emit('file-start', {transferId, metaCiphertext, metaIv, totalChunks});
   });
 
+  // relay a file chunk to the other user
   socket.on('file-chunk', ({code, transferId, seq, ciphertext, iv})=>{
     const room = rooms[code];
     if(!room || !room.sockets.includes(socket.id)) return;
     socket.to(code).emit('file-chunk', {transferId, seq, ciphertext, iv});
   });
 
+  // relay chunk acknowledgement back to the sender
   socket.on('file-chunk-ack', ({code, transferId, seq})=>{
     const room = rooms[code];
     if(!room || !room.sockets.includes(socket.id)) return;
     socket.to(code).emit('file-chunk-ack', {transferId, seq});
   });
 
+  // relay the file end announcement to the other user
   socket.on('file-end', ({code, transferId}) =>{
     const room = rooms[code];
     if(!room || !room.sockets.includes(socket.id)) return;
     socket.to(code).emit('file-end', {transferId});
   });
 
+  // if a user leaves disconnect or if both leave, destroy room 
   socket.on('disconnect', ()=>{
     const found = roomOf(socket.id);
     if(!found) return;

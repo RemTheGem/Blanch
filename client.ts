@@ -5,11 +5,14 @@ const MAX_FILE_BYTES = 25 * 1024 * 1024 * 4;
 // size of each chunk
 const CHUNK_SIZE = 1024 * 1024;
 
+// metadata for sent and received files
 interface FileMeta {
   name: string;
   type: string;
 }
 
+
+// details for sent files
 interface OutgoingTransfer {
   transferId: string;
   bytes: ArrayBuffer;
@@ -19,6 +22,8 @@ interface OutgoingTransfer {
   fileType: string;
 }
 
+
+// details for incoming messages
 interface IncomingTransfer {
   transferId: string;
   meta: FileMeta;
@@ -73,6 +78,7 @@ createRoom.addEventListener("click", ()=>{
 
 socket.on("room-created", ({code}: {code: string})=>{
   enterRoom(code);
+  // turn room code into url and into qrcode
   const joinUrl = `${window.location.origin}?code=${code}`;
   toDataURL(joinUrl).then((resolvedValue) => {
     qrCodeImage.src = resolvedValue; 
@@ -91,16 +97,19 @@ joinRoom.addEventListener("click", ()=>{
   });
 });
 
+// when room is created enter it and start handshake
 socket.on("room-joined", ({code}: {code: string})=>{
   enterRoom(code);
   startHandshake();
 });
 
+// when second user joins start handshake and let user 1 know
 socket.on('user-joined', ()=>{
   startHandshake();
   addMessage("System", "User joined!");
 });
 
+// if a user leaves disable messaging
 socket.on('user-left', ()=>{
   sharedKey = null;
   messageInput.disabled = true;
@@ -189,16 +198,20 @@ fileInput.addEventListener("change", async () =>{
   fileInput.value = "";
   if(!file || !thisRoom || !sharedKey) return;
 
+  // send one file at a time
   if(outgoingTransfer){
     addMessage("System", "Still sending a previous file. Wait for it to finish!");
     return;
   }
 
+  // make sure the file is below the size limit
   if(file.size > MAX_FILE_BYTES){
     addMessage("System", "File too large")
     return;
   }
 
+  // turn the data into raw bytes, calculate how many chunks it is
+  // and give it a unique id
   const rawBytes = await file.arrayBuffer();
   const totalChunks = Math.max(1, Math.ceil(rawBytes.byteLength / CHUNK_SIZE));
   const transferId = crypto.randomUUID();
@@ -207,6 +220,7 @@ fileInput.addEventListener("change", async () =>{
 
   const metaEnc = await encryptMessage (sharedKey, JSON.stringify({name: file.name, type: file.type} as FileMeta));
 
+  // start sending file and show progress
   socket.emit("file-start", {
     code: thisRoom, transferId, metaCiphertext: metaEnc.ciphertext, metaIv: metaEnc.iv, totalChunks,
   });
@@ -214,6 +228,7 @@ fileInput.addEventListener("change", async () =>{
   await trySendNextChunk();
 });
 
+// check if we can send the next chunk
 async function trySendNextChunk(): Promise<void> {
   if(!outgoingTransfer || !sharedKey || !thisRoom) return;
   if(incomingTransfer && !sawIncomingChunkSinceLastSend) return;
@@ -233,6 +248,7 @@ async function trySendNextChunk(): Promise<void> {
   sawIncomingChunkSinceLastSend = false;
 }
 
+// when a chunk ACK is received try sending the next chunk
 socket.on("file-chunk-ack", ({transferId, seq}: {transferId: string, seq: number})=>{
   if(outgoingTransfer?.transferId !== transferId || seq !== outgoingTransfer.nextSeq)return;
   outgoingTransfer.nextSeq++;
@@ -242,8 +258,6 @@ socket.on("file-chunk-ack", ({transferId, seq}: {transferId: string, seq: number
 
 // receive files
 
-
- 
 socket.on("file-start", async ({ transferId, metaCiphertext, metaIv, totalChunks }:
   { transferId: string; metaCiphertext: string; metaIv: string; totalChunks: number }) => {
   if (!sharedKey) return;
@@ -257,6 +271,7 @@ socket.on("file-start", async ({ transferId, metaCiphertext, metaIv, totalChunks
   }
 });
 
+// for each chunk, decrypt the bytes and send ack for each one
 socket.on("file-chunk", async ({transferId, seq, ciphertext, iv}: {transferId: string; seq: number; ciphertext: ArrayBuffer; iv: Uint8Array})=>{
   if(!sharedKey || !thisRoom || incomingTransfer?.transferId !== transferId) return;
   try{
@@ -274,6 +289,7 @@ socket.on("file-chunk", async ({transferId, seq, ciphertext, iv}: {transferId: s
   }
 });
 
+// combine file chunks when they finish
 socket.on("file-end", ({transferId}: {transferId: string})=>{
   if(incomingTransfer?.transferId !== transferId) return;
   const totalBytes = incomingTransfer.chunks.reduce((sum, c) => sum + c.byteLength, 0);
