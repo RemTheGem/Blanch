@@ -3,6 +3,7 @@
   --bg-lite: #7c2828;
   --text: #ffffff;
   --line: #840000;
+  color-scheme: dark;
 }
 
 
@@ -24,6 +25,7 @@ button{
 
 #roomCode, #messageInput{
   background: var(--bg);
+  color: var(--text);
 }
 
 #messages {
@@ -31,8 +33,35 @@ button{
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  background-color: #0c0c0c;
+  gap: 0.5rem;
 }
 
 #chat>*:not(#messages) {
   flex-shrink: 0;
+}
+
+.bubble {
+  padding: 0.5rem 0.75rem;
+  border-radius: 1rem;
+  max-width: 70%;
+  width: fit-content;
+  word-wrap: break-word;
+  margin: 0;
+}
+
+.bubble-you {
+  align-self: flex-end;
+  background: var(--bg-lite);
+}
+
+.bubble-other {
+  align-self: flex-start;
+  background:rgb(38, 124, 158);
+}
+
+.bubble-system {
+  align-self: center;
+  background: transparent;
+  font-size: 0.85rem;
 }

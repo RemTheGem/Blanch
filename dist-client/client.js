@@ -2414,6 +2414,7 @@
         const blob = new Blob([data], { type });
         const url = URL.createObjectURL(blob);
         const wrapper = document.createElement("p");
+        wrapper.classList.add("bubble", sender === "You" ? "bubble-you" : "bubble-other");
         const label = document.createElement("span");
         label.textContent = `${sender}: `;
         wrapper.appendChild(label);
@@ -2438,9 +2439,10 @@
       function addMessage(sender, message) {
         const element = document.createElement("p");
         element.textContent = `${sender}: ${message}`;
-        if (sender === "System") {
-          element.style.color = "red";
-        }
+        element.classList.add("bubble");
+        if (sender === "You") element.classList.add("bubble-you");
+        else if (sender === "System") element.classList.add("bubble-system");
+        else element.classList.add("bubble-other");
         messages.appendChild(element);
         scrollToBottom();
       }
