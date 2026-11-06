@@ -305,6 +305,15 @@ function hideProgress(direction: "in" | "out"): void {
   container.innerHTML = "";
 }
 
+// helper for scroll
+
+function scrollToBottom(): void {
+  const isNearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 100;
+  if (isNearBottom) {
+    messages.scrollTop = messages.scrollHeight;
+  }
+}
+
 // render file (previews)
 
 function renderFile(sender: string, name: string, type: string, data: ArrayBuffer): void{
@@ -331,6 +340,7 @@ function renderFile(sender: string, name: string, type: string, data: ArrayBuffe
     wrapper.appendChild(link);
   }
   messages.appendChild(wrapper);
+  scrollToBottom();
 }
 
 // file input
@@ -346,4 +356,5 @@ function addMessage(sender: string, message: string){
     element.style.color = 'red';
   }
   messages.appendChild(element);
+  scrollToBottom();
 }

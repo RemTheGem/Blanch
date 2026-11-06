@@ -2404,6 +2404,12 @@
         container.hidden = true;
         container.innerHTML = "";
       }
+      function scrollToBottom() {
+        const isNearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 100;
+        if (isNearBottom) {
+          messages.scrollTop = messages.scrollHeight;
+        }
+      }
       function renderFile(sender, name, type, data) {
         const blob = new Blob([data], { type });
         const url = URL.createObjectURL(blob);
@@ -2426,6 +2432,7 @@
           wrapper.appendChild(link);
         }
         messages.appendChild(wrapper);
+        scrollToBottom();
       }
       fileInputButton.addEventListener("click", () => fileInput.click());
       function addMessage(sender, message) {
@@ -2435,6 +2442,7 @@
           element.style.color = "red";
         }
         messages.appendChild(element);
+        scrollToBottom();
       }
     }
   });
