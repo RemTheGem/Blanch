@@ -111,6 +111,7 @@ socket.on('user-joined', ()=>{
 
 // if a user leaves disable messaging
 socket.on('user-left', ()=>{
+  addMessage("System", "User Left!")
   sharedKey = null;
   messageInput.disabled = true;
 });
